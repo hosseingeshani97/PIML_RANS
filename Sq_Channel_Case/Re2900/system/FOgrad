@@ -1,0 +1,364 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  9
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+
+writeCellCentres
+{
+    // Mandatory entries (unmodifiable)
+    type            writeCellCentres;
+    libs            ("libfieldFunctionObjects.so");
+
+    // Optional (inherited) entries
+    //region          region0;
+    enabled         true;
+    log             true;
+    //timeStart       0;
+    //timeEnd         1000;
+    executeControl  timeStep;
+    executeInterval 1;
+    writeControl    timeStep;
+    writeInterval   1;
+}
+
+
+S_h
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{
+    
+    const volTensorField& strain_rate = mesh().lookupObject<volTensorField>("strain_rate");
+    const volScalarField& epsilon = mesh().lookupObject<volScalarField>("epsilon");
+    const volScalarField& k = mesh().lookupObject<volScalarField>("k");
+    
+    volTensorField S_h
+    (
+    IOobject
+    (
+    "S_h",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    strain_rate/(mag(epsilon/k) + mag(strain_rate))
+    );
+    
+    S_h.write();
+    
+    #};
+}
+
+Omega_h
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{
+    
+    const volTensorField& rotation_rate = mesh().lookupObject<volTensorField>("rotation_rate");
+
+    volTensorField Omega_h
+    (
+    IOobject
+    (
+    "Omega_h",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    rotation_rate/(mag(rotation_rate) + mag(rotation_rate))
+    );
+    
+    Omega_h.write();
+    
+    #};
+}
+
+/*
+divUU
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{    
+    const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+
+    volVectorField divUU
+    (
+    IOobject
+    (
+    "divUU",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    fvc::div(U*U)
+    );
+    
+    divUU.write();
+    
+    #};
+}
+*/
+
+A_p_h
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{
+    
+    const volVectorField& gradP = mesh().lookupObject<volVectorField>("gradP");
+    const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+
+    volVectorField grad_p_h
+    (
+    IOobject
+    (
+    "grad_p_h",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    (gradP)/(mag(fvc::div(U*U)) + mag(gradP))
+    );
+    
+    grad_p_h.write();
+
+    volTensorField A_p_h
+    (
+    IOobject
+    (
+    "A_p_h",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    tensor(0,1,0,0,0,0,0,0,0)*grad_p_h.component(2) + tensor(0,0,1,0,0,0,0,0,0)*(-grad_p_h.component(1)) + tensor(0,0,0,1,0,0,0,0,0)*(-grad_p_h.component(2)) + tensor(0,0,0,0,0,1,0,0,0)*(grad_p_h.component(0)) + tensor(0,0,0,0,0,0,1,0,0)*(grad_p_h.component(1)) + tensor(0,0,0,0,0,0,0,1,0)*(-grad_p_h.component(0))
+    );
+    
+    A_p_h.write();
+    
+    #};
+}
+
+A_k_h
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{
+    
+    const volScalarField& k = mesh().lookupObject<volScalarField>("k");
+    const volScalarField& epsilon = mesh().lookupObject<volScalarField>("epsilon");
+
+    volVectorField grad_k_h
+    (
+    IOobject
+    (
+    "grad_k_h",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    (fvc::grad(k))/(mag(epsilon/pow(k,0.5)) + mag(fvc::grad(k)))
+    );
+    
+    grad_k_h.write();
+
+    volTensorField A_k_h
+    (
+    IOobject
+    (
+    "A_k_h",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    tensor(0,1,0,0,0,0,0,0,0)*grad_k_h.component(2) + tensor(0,0,1,0,0,0,0,0,0)*(-grad_k_h.component(1)) + tensor(0,0,0,1,0,0,0,0,0)*(-grad_k_h.component(2)) + tensor(0,0,0,0,0,1,0,0,0)*(grad_k_h.component(0)) + tensor(0,0,0,0,0,0,1,0,0)*(grad_k_h.component(1)) + tensor(0,0,0,0,0,0,0,1,0)*(-grad_k_h.component(0))
+    );
+    
+    A_k_h.write();
+    
+    #};
+}
+
+q_Scalar_1
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{
+    
+    const volScalarField& k = mesh().lookupObject<volScalarField>("k");
+    const volScalarField& wd = mesh().lookupObject<volScalarField>("Wall_Dist");
+    //const objectRegistry& db = U_.db();
+    //const dictionary& transportProperties = db().lookupObject("transportProperties");
+    //dimensionedScalar nua(transportProperties.lookup("nu"));
+
+    dimensionedScalar nua
+    (
+        "nua",
+        dimensionSet(0, 2, -1, 0, 0, 0 ,0),
+        0.00016619
+    );
+    
+    volScalarField q_Scalar_1
+    (
+    IOobject
+    (
+    "q_Scalar_1",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    (pow(k,0.5)*wd/(50*nua))
+    );
+    
+    forAll(q_Scalar_1, i)
+    {
+        if  (q_Scalar_1[i]>2)
+        {
+            q_Scalar_1[i] = 2;
+        }
+    }
+    q_Scalar_1.write();
+
+    #};
+}
+
+q_Scalar_2
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{
+    
+    const volScalarField& k = mesh().lookupObject<volScalarField>("k");
+    const volTensorField& strain_rate = mesh().lookupObject<volTensorField>("strain_rate");
+
+    dimensionedScalar nua
+    (
+        "nua",
+        dimensionSet(0, 2, -1, 0, 0, 0 ,0),
+        0.00016619
+    );
+    
+    volScalarField q_Scalar_2
+    (
+    IOobject
+    (
+    "q_Scalar_2",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    (k/(mag(k) + nua*mag(strain_rate)))
+    );
+    
+    q_Scalar_2.write();
+
+    #};
+}
+
+q_Scalar_3
+{
+    // Mandatory entries (unmodifiable)
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    enabled         true;
+    log             true;
+    writeControl    timeStep;
+    writeInterval   1;
+    
+
+    codeWrite
+    #{
+    
+    const volScalarField& k = mesh().lookupObject<volScalarField>("k");
+    const volScalarField& epsilon = mesh().lookupObject<volScalarField>("epsilon");
+    const volTensorField& strain_rate = mesh().lookupObject<volTensorField>("strain_rate");
+    
+    volScalarField q_Scalar_3
+    (
+    IOobject
+    (
+    "q_Scalar_3",
+    mesh().time().timeName(),
+    mesh(),
+    IOobject::NO_READ,
+    IOobject::AUTO_WRITE
+    ),
+    ((k/epsilon)/(mag(k/epsilon) + (1/mag(strain_rate))))
+    );
+    
+    q_Scalar_3.write();
+
+    #};
+}
+
+// ************************************************************************* //
+
